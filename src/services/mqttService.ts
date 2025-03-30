@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Client, Message } from 'paho-mqtt';
 
@@ -283,6 +282,7 @@ export const useSimulatedElevator = () => {
     weight: 320,
     batteryLevel: 92,
     maintenance: false,
+    systemState: 'NORMAL',
     lastUpdated: new Date().toISOString()
   });
   

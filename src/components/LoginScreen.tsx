@@ -8,11 +8,19 @@ interface LoginScreenProps {
   onLogin: (username: string, password: string) => void;
   isLoading?: boolean;
   error?: string | null;
+  defaultUsername?: string; // Add defaultUsername prop
+  defaultPassword?: string; // Add defaultPassword prop
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading = false, error = null }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+const LoginScreen: React.FC<LoginScreenProps> = ({ 
+  onLogin, 
+  isLoading = false, 
+  error = null,
+  defaultUsername = '',  // Set default empty value
+  defaultPassword = ''   // Set default empty value
+}) => {
+  const [username, setUsername] = useState(defaultUsername);
+  const [password, setPassword] = useState(defaultPassword);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
