@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -135,10 +136,14 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
         const floorLine = new THREE.Line(floorGeometry, lineMaterial);
         shaftGroup.add(floorLine);
         
-        // Floor number - removed TextGeometry that was causing issues
+        // Floor number - using HTML overlay instead of TextGeometry
         if (i > 0) {
-          // Create floor number indicators using HTML
-          // We'll implement this in the overlay instead
+          // Create floor markers without TextGeometry
+          const markerGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.1);
+          const markerMaterial = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+          const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+          marker.position.set(-shaftWidth / 2 - 1, y, 0);
+          shaftGroup.add(marker);
         }
       }
       
@@ -227,7 +232,8 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
       return elevatorGroup;
     };
 
-    const totalFloors = status?.totalFloors || 20;
+    // Limit floors to 3 to match hardware elevator
+    const totalFloors = status?.totalFloors || 3;
     
     // Create and add shaft to scene
     const shaft = createShaft(totalFloors);
