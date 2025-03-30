@@ -1,58 +1,14 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 200 25% 5%;
     --foreground: 210 40% 98%;
 
     --card: 222.2 84% 4.9%;
@@ -61,17 +17,17 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
+    --primary: 186 100% 50%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 329 100% 50%;
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 52 97% 60%;
+    --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
@@ -79,14 +35,8 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --radius: 0.5rem;
   }
 }
 
@@ -94,8 +44,154 @@
   * {
     @apply border-border;
   }
-
+  
+  html, body {
+    @apply bg-cyber-black text-foreground;
+    overflow-x: hidden;
+  }
+  
   body {
-    @apply bg-background text-foreground;
+    font-family: 'Share Tech Mono', monospace;
+    background-color: #0d0d0d;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(0, 240, 255, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(255, 0, 85, 0.05) 0%, transparent 50%);
+    color: rgba(255, 255, 255, 0.87);
+  }
+  
+  #root {
+    min-height: 100vh;
+    max-width: 100vw;
+    padding: 0;
+    margin: 0;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Orbitron', sans-serif;
+  }
+}
+
+@layer components {
+  .cyber-border {
+    @apply border-2 border-cyber-blue shadow-neon-blue;
+    clip-path: polygon(
+      0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px,
+      100% calc(100% - 10px), calc(100% - 10px) 100%,
+      10px 100%, 0 calc(100% - 10px)
+    );
+  }
+  
+  .cyber-panel {
+    @apply bg-cyber-dark bg-opacity-80 p-4 rounded-sm border border-cyber-blue relative overflow-hidden;
+    box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.3);
+  }
+  
+  .cyber-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00F0FF, transparent);
+  }
+  
+  .cyber-panel::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #00F0FF, transparent);
+  }
+  
+  .cyber-text {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(to right, #00F0FF, #FF0055);
+  }
+  
+  .cyber-button {
+    @apply font-cyber bg-cyber-dark text-cyber-blue border border-cyber-blue 
+           relative py-2 px-6 hover:bg-cyber-blue hover:text-cyber-dark
+           transition-all duration-300 uppercase tracking-wider;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    clip-path: polygon(
+      0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px,
+      100% calc(100% - 10px), calc(100% - 10px) 100%,
+      10px 100%, 0 calc(100% - 10px)
+    );
+  }
+  
+  .cyber-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, transparent 25%, rgba(0, 240, 255, 0.2) 50%, transparent 75%);
+    background-size: 200% 200%;
+    animation: shine 2s linear infinite;
+    clip-path: inherit;
+  }
+  
+  @keyframes shine {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  
+  .cyber-input {
+    @apply bg-cyber-dark border border-cyber-blue text-cyber-blue p-2 
+           focus:outline-none focus:ring-2 focus:ring-cyber-pink;
+    box-shadow: inset 0 0 5px rgba(0, 240, 255, 0.5);
+  }
+  
+  .digital-rain {
+    @apply font-cyber-mono text-cyber-green text-opacity-80 select-none animate-digital-rain whitespace-nowrap;
+  }
+  
+  .scanline {
+    @apply w-full h-screen pointer-events-none fixed top-0 left-0 z-50;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.03) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 100% 3px;
+    animation: scanline 5s linear infinite;
+  }
+  
+  @keyframes scanline {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(100vh);
+    }
+  }
+  
+  .glitch {
+    animation: glitch 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+  }
+  
+  .neon-text-blue {
+    @apply text-cyber-blue;
+    text-shadow: 0 0 5px rgba(0, 240, 255, 0.8), 0 0 10px rgba(0, 240, 255, 0.5);
+  }
+  
+  .neon-text-pink {
+    @apply text-cyber-pink;
+    text-shadow: 0 0 5px rgba(255, 0, 85, 0.8), 0 0 10px rgba(255, 0, 85, 0.5);
+  }
+  
+  .neon-text-yellow {
+    @apply text-cyber-yellow;
+    text-shadow: 0 0 5px rgba(245, 235, 65, 0.8), 0 0 10px rgba(245, 235, 65, 0.5);
   }
 }
