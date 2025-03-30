@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import DigitalRain from '@/components/DigitalRain';
 import LoginScreen from '@/components/LoginScreen';
@@ -8,6 +8,8 @@ import StatusPanel from '@/components/StatusPanel';
 import ControlPanel from '@/components/ControlPanel';
 import AlertsPanel from '@/components/AlertsPanel';
 import LogsPanel from '@/components/LogsPanel';
+import TerminalPanel from '@/components/TerminalPanel';
+import VoiceControl from '@/components/VoiceControl';
 import { useMqtt, useSimulatedElevator } from '@/services/mqttService';
 import { 
   ArrowLeftRight,
@@ -15,8 +17,11 @@ import {
   ListChecks,
   Bell,
   TerminalSquare,
-  LogOut
+  LogOut,
+  Mic,
+  Command
 } from 'lucide-react';
+import { parseCommand } from '@/services/commandParser';
 
 // Default MQTT credentials from Arduino sketch
 const DEFAULT_MQTT_USER = "hivemq.webclient.1741534338297";
@@ -112,6 +117,67 @@ const Index = () => {
       description: "Disconnected from elevator control system",
     });
   };
+
+  // Handle voice commands
+  const handleVoiceCommand = useCallback((text: string) => {
+    if (!text.trim()) return;
+    
+    try {
+      // Try to parse the voice command
+      const command = parseCommand(text);
+      
+      if (command) {
+        // Execute the command
+        publishCommand(command);
+        
+        toast({
+          title: "Voice Command Executed",
+          description: `Command: ${command.action}${command.floor ? ` to floor ${command.floor}` : ''}`,
+        });
+      } else {
+        toast({
+          title: "Unrecognized Command",
+          description: "Sorry, I couldn't understand that command",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Voice Command Error",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive"
+      });
+    }
+  }, [publishCommand, toast]);
+  
+  // Handle terminal commands
+  const handleTerminalCommand = useCallback((text: string) => {
+    try {
+      // Try to send the command directly
+      // First check if it's raw JSON
+      if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
+        try {
+          const jsonCommand = JSON.parse(text);
+          publishCommand(jsonCommand);
+          return;
+        } catch (e) {
+          // Not valid JSON, continue with parsing
+        }
+      }
+      
+      // Try to parse as natural language
+      const command = parseCommand(text);
+      
+      if (command) {
+        publishCommand(command);
+      } else {
+        throw new Error("Unknown command format");
+      }
+    } catch (error) {
+      console.error("Command error:", error);
+      throw error;
+    }
+  }, [publishCommand]);
   
   // If not authenticated, show login screen
   if (!isAuthenticated) {
@@ -186,7 +252,29 @@ const Index = () => {
                   : 'text-cyber-blue hover:bg-cyber-blue hover:bg-opacity-20'
               }`}
             >
-              <TerminalSquare className="w-5 h-5" />
+              <ListChecks className="w-5 h-5" />
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab('terminal')}
+              className={`p-3 rounded-md transition-all duration-200 ${
+                activeTab === 'terminal' 
+                  ? 'bg-cyber-blue text-cyber-dark' 
+                  : 'text-cyber-blue hover:bg-cyber-blue hover:bg-opacity-20'
+              }`}
+            >
+              <Command className="w-5 h-5" />
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab('voice')}
+              className={`p-3 rounded-md transition-all duration-200 ${
+                activeTab === 'voice' 
+                  ? 'bg-cyber-blue text-cyber-dark' 
+                  : 'text-cyber-blue hover:bg-cyber-blue hover:bg-opacity-20'
+              }`}
+            >
+              <Mic className="w-5 h-5" />
             </button>
           </div>
           
@@ -200,14 +288,20 @@ const Index = () => {
         
         {/* Main Content */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {/* Header */}
+          {/* Header - Fixed to avoid overlapping text issues */}
           <header className="bg-cyber-dark border-b border-cyber-blue py-3 px-4">
             <div className="flex justify-between items-center">
-              <h1 className="text-xl md:text-2xl font-cyber">
-                <span className="text-cyber-blue">Neon</span>
-                <span className="text-cyber-pink">Elevate</span>
-                <span className="text-cyber-blue ml-2 text-sm md:text-base">v2.0</span>
-              </h1>
+              <div className="flex flex-col">
+                <h1 className="text-xl md:text-2xl font-cyber">
+                  <span className="text-cyber-blue">Neon</span>
+                  <span className="text-cyber-pink">Elevate</span>
+                  <span className="text-cyber-blue ml-2 text-sm md:text-base">v2.0</span>
+                </h1>
+                <div className="flex items-center text-xs text-gray-400 mt-1">
+                  <span className="mr-4">Status: {elevatorStatus?.systemState || 'UNKNOWN'}</span>
+                  <span>System: {elevatorStatus ? 'ONLINE' : 'OFFLINE'}</span>
+                </div>
+              </div>
               
               <div className="flex items-center space-x-3">
                 <div className="hidden md:flex items-center">
@@ -285,6 +379,25 @@ const Index = () => {
             {activeTab === 'logs' && (
               <div className="grid grid-cols-1 gap-4">
                 <LogsPanel logs={logs} />
+              </div>
+            )}
+            
+            {/* Terminal View */}
+            {activeTab === 'terminal' && (
+              <div className="grid grid-cols-1 gap-4">
+                <TerminalPanel onSendCommand={handleTerminalCommand} />
+              </div>
+            )}
+            
+            {/* Voice Control View */}
+            {activeTab === 'voice' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <VoiceControl onSpeechResult={handleVoiceCommand} />
+                </div>
+                <div>
+                  <TerminalPanel onSendCommand={handleTerminalCommand} />
+                </div>
               </div>
             )}
           </main>
