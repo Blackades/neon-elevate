@@ -1,164 +1,260 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Mic, MicOff } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 interface VoiceControlProps {
   onSpeechResult: (text: string) => void;
-  className?: string;
 }
 
-const VoiceControl: React.FC<VoiceControlProps> = ({ onSpeechResult, className }) => {
+// Handle browser compatibility for SpeechRecognition
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message: string;
+}
+
+// Define the SpeechRecognition type
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognition;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((event: Event) => void) | null;
+}
+
+// Get the correct SpeechRecognition object based on browser
+const SpeechRecognitionAPI: SpeechRecognitionConstructor | undefined = 
+  (window as any).SpeechRecognition || 
+  (window as any).webkitSpeechRecognition || 
+  undefined;
+
+const VoiceControl: React.FC<VoiceControlProps> = ({ onSpeechResult }) => {
   const [isListening, setIsListening] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isSupported, setIsSupported] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const { toast } = useToast();
-
-  // Check if browser supports SpeechRecognition
+  
   useEffect(() => {
-    // Check if browser supports SpeechRecognition
-    if (!('webkitSpeechRecognition' in window) && 
-        !('SpeechRecognition' in window)) {
+    // Check if speech recognition is supported
+    if (!SpeechRecognitionAPI) {
       setIsSupported(false);
-      toast({
-        title: "Voice Control Unavailable",
-        description: "Your browser doesn't support voice recognition.",
-        variant: "destructive"
-      });
+      setError('Speech recognition is not supported in this browser');
+      return;
     }
-  }, [toast]);
-
-  const startListening = () => {
-    if (!isSupported) return;
     
+    // Initialize speech recognition
     try {
-      // Initialize speech recognition
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      
-      // Configure
+      recognitionRef.current = new SpeechRecognitionAPI();
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
       
-      // Set up event handlers
-      recognitionRef.current.onstart = () => {
-        setIsListening(true);
-        setTranscript('');
-      };
-      
-      recognitionRef.current.onresult = (event) => {
-        const currentTranscript = Array.from(event.results)
-          .map(result => result[0].transcript)
-          .join('');
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        const result = event.results[event.results.length - 1];
+        const transcript = result[0].transcript;
+        setTranscript(transcript);
         
-        setTranscript(currentTranscript);
+        if (result.isFinal && !isMuted) {
+          onSpeechResult(transcript);
+        }
       };
       
-      recognitionRef.current.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
-        toast({
-          title: "Voice Recognition Error",
-          description: event.error,
-          variant: "destructive"
-        });
-        stopListening();
+      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error);
+        setError(`Error: ${event.error}`);
+        setIsListening(false);
       };
       
-      // Start listening
-      recognitionRef.current.start();
-    } catch (error) {
-      console.error('Error starting speech recognition:', error);
-      toast({
-        title: "Voice Control Error",
-        description: "Failed to start voice recognition",
-        variant: "destructive"
-      });
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    } catch (err) {
+      console.error('Failed to initialize speech recognition:', err);
+      setIsSupported(false);
+      setError('Failed to initialize speech recognition');
     }
-  };
-  
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-      
-      // Process final transcript
-      if (transcript.trim()) {
-        onSpeechResult(transcript.trim());
+    
+    return () => {
+      // Cleanup
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
       }
+    };
+  }, [onSpeechResult, isMuted]);
+  
+  const handleStartListening = () => {
+    setError(null);
+    if (!recognitionRef.current) return;
+    
+    try {
+      recognitionRef.current.start();
+      setIsListening(true);
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      setError('Failed to start speech recognition');
     }
   };
-
-  // Handle press and hold
-  const handleMouseDown = () => {
-    startListening();
+  
+  const handleStopListening = () => {
+    if (!recognitionRef.current) return;
+    
+    try {
+      recognitionRef.current.stop();
+    } catch (err) {
+      console.error('Failed to stop speech recognition:', err);
+    }
   };
   
-  const handleMouseUp = () => {
-    stopListening();
+  const handleMicMouseDown = () => {
+    if (!isListening) {
+      handleStartListening();
+    }
   };
   
-  const handleTouchStart = () => {
-    startListening();
+  const handleMicMouseUp = () => {
+    if (isListening) {
+      handleStopListening();
+    }
   };
   
-  const handleTouchEnd = () => {
-    stopListening();
+  const handleMuteToggle = () => {
+    setIsMuted(!isMuted);
+  };
+  
+  const handleClearTranscript = () => {
+    setTranscript('');
+  };
+  
+  const handleSendCommand = () => {
+    if (transcript.trim()) {
+      onSpeechResult(transcript);
+      setTranscript('');
+    }
   };
 
   return (
-    <div className={`flex flex-col ${className || ''}`}>
-      <div className="border-b border-cyber-blue pb-2 mb-2">
-        <h3 className="font-cyber text-cyber-blue">VOICE CONTROL</h3>
-      </div>
-      
-      <div className="flex-1 flex flex-col items-center">
-        <Button
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          disabled={!isSupported}
-          className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-all duration-200 ${
-            isListening 
-              ? 'bg-cyber-pink text-white animate-pulse scale-110' 
-              : 'bg-cyber-dark text-cyber-blue hover:bg-cyber-blue hover:text-cyber-dark'
-          }`}
-        >
-          {isListening ? (
-            <Mic className="w-12 h-12" />
-          ) : (
-            <MicOff className="w-12 h-12" />
-          )}
-        </Button>
-        
-        <p className="text-xs text-center text-gray-400 mb-2">
-          {isSupported 
-            ? (isListening 
-                ? "I'm listening... Release when done." 
-                : "Press & hold to speak")
-            : "Voice control not supported in your browser"}
-        </p>
-        
-        <div className={`w-full p-2 bg-cyber-dark border ${
-          isListening ? 'border-cyber-pink' : 'border-cyber-blue'
-        } rounded text-sm min-h-14 max-h-28 overflow-auto`}>
-          {transcript || (isListening ? "Listening..." : "Spoken commands will appear here")}
+    <div className="cyber-panel h-full">
+      <div className="border-b border-cyber-blue pb-2 mb-4">
+        <div className="flex justify-between items-center">
+          <h3 className="font-cyber text-cyber-blue">VOICE CONTROL</h3>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleMuteToggle}
+              className={`p-2 rounded ${isMuted ? 'text-cyber-pink bg-cyber-dark' : 'text-cyber-blue hover:bg-cyber-dark'}`}
+            >
+              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+          </div>
         </div>
       </div>
+      
+      {!isSupported ? (
+        <div className="bg-cyber-dark bg-opacity-50 p-4 rounded text-center">
+          <p className="text-cyber-pink">Speech recognition is not supported in this browser</p>
+          <p className="text-gray-400 text-sm mt-2">Try using Chrome or Edge for voice control</p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-4">
+            <div className="bg-cyber-dark bg-opacity-50 p-3 rounded-t">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-300">Transcript</span>
+                <button 
+                  onClick={handleClearTranscript}
+                  className="text-xs text-cyber-blue hover:text-cyber-pink"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <Textarea
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              className="rounded-t-none border-t-0 bg-cyber-dark bg-opacity-30 text-cyber-blue resize-none h-32"
+              placeholder="Voice transcript will appear here..."
+            />
+          </div>
+          
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-400">
+              {isListening ? (
+                <span className="text-cyber-green flex items-center">
+                  <span className="w-2 h-2 rounded-full bg-cyber-green mr-2 animate-pulse"></span>
+                  Listening...
+                </span>
+              ) : (
+                <span>Press and hold to speak</span>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleSendCommand}
+                className="px-3 py-1 text-sm bg-cyber-blue text-cyber-dark rounded"
+                disabled={!transcript.trim()}
+              >
+                Send
+              </button>
+              
+              <button
+                onMouseDown={handleMicMouseDown}
+                onMouseUp={handleMicMouseUp}
+                onTouchStart={handleMicMouseDown}
+                onTouchEnd={handleMicMouseUp}
+                onMouseLeave={isListening ? handleStopListening : undefined}
+                className={`p-3 rounded-full ${
+                  isListening 
+                    ? 'bg-cyber-pink text-white animate-pulse' 
+                    : 'bg-cyber-blue text-cyber-dark hover:bg-opacity-80'
+                }`}
+              >
+                {isListening ? <Mic size={24} /> : <Mic size={24} />}
+              </button>
+            </div>
+          </div>
+          
+          {error && (
+            <div className="mt-4 text-cyber-pink text-sm bg-cyber-dark bg-opacity-50 p-2 rounded">
+              {error}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
-
-// Add this for TypeScript to recognize the Web Speech API
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
 
 export default VoiceControl;

@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -313,7 +314,7 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
       className={`w-full h-full bg-cyber-dark rounded-md overflow-hidden ${className || ''}`}
     >
       {status && (
-        <div className="absolute top-2 left-2 z-10 font-cyber bg-black bg-opacity-50 px-4 py-2 rounded">
+        <div className="absolute top-2 left-2 z-10 font-cyber bg-black bg-opacity-70 px-4 py-2 rounded">
           <div className="text-cyber-blue text-xl">
             Floor <span className="text-cyber-pink">{status.floor}</span>
             {status.target && status.target !== status.floor && (
@@ -336,7 +337,7 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
       )}
 
       {status && (
-        <div className="absolute top-2 right-2 z-10 font-cyber bg-black bg-opacity-50 px-3 py-1 rounded flex items-center">
+        <div className="absolute top-2 right-2 z-10 font-cyber bg-black bg-opacity-70 px-3 py-1 rounded flex items-center">
           <Battery className={`w-4 h-4 mr-1 ${
             status.batteryLevel < 30 ? 'text-cyber-pink' : 
             status.batteryLevel < 60 ? 'text-cyber-yellow' : 
