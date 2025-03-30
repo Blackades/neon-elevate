@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ElevatorStatus } from '../services/mqttService';
 
 interface ElevatorVisualizationProps {
@@ -135,18 +135,10 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
         const floorLine = new THREE.Line(floorGeometry, lineMaterial);
         shaftGroup.add(floorLine);
         
-        // Floor number
+        // Floor number - removed TextGeometry that was causing issues
         if (i > 0) {
-          const floorTextMaterial = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-          const textGeometry = new THREE.TextGeometry(i.toString(), {
-            font: new THREE.Font({}), // Mock font for now - we'll use regular HTML for real floor numbers
-            size: 0.5,
-            height: 0.1
-          });
-          const floorText = new THREE.Mesh(textGeometry, floorTextMaterial);
-          floorText.position.set(-shaftWidth / 2 - 1, y - 0.25, 0);
-          // Note: We don't add it because TextGeometry requires font loading which adds complexity
-          // shaftGroup.add(floorText);
+          // Create floor number indicators using HTML
+          // We'll implement this in the overlay instead
         }
       }
       
