@@ -233,7 +233,7 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
     };
 
     // Limit floors to 3 to match hardware elevator
-    const totalFloors = status?.totalFloors || 3;
+    const totalFloors = 3; // Always use 3 floors to match the Arduino sketch
     
     // Create and add shaft to scene
     const shaft = createShaft(totalFloors);
@@ -337,6 +337,17 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
     }
   }, [status]);
 
+  // Add system state color
+  const getSystemStateColor = () => {
+    if (!status) return "#00f0ff"; // Default cyan
+    switch(status.systemState) {
+      case "MAINTENANCE": return "#f0f000"; // Yellow
+      case "EMERGENCY": return "#f000f0"; // Magenta
+      case "ERROR": return "#f00000"; // Red
+      default: return "#00f0ff"; // Cyan for normal
+    }
+  };
+
   return (
     <div 
       ref={containerRef} 
@@ -347,6 +358,9 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
         <div className="absolute top-2 left-2 z-10 font-cyber bg-black bg-opacity-50 px-4 py-2 rounded">
           <div className="text-cyber-blue text-xl">
             Floor <span className="text-cyber-pink">{status.floor}</span>
+            {status.target && status.target !== status.floor && (
+              <span className="text-cyber-yellow"> → {status.target}</span>
+            )}
           </div>
           <div className="text-xs text-cyber-blue">
             Status: <span className={
@@ -357,6 +371,27 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
               {status.direction.toUpperCase()}
             </span>
           </div>
+          <div className="text-xs" style={{ color: getSystemStateColor() }}>
+            System: {status.systemState}
+          </div>
+        </div>
+      )}
+
+      {/* Battery indicator */}
+      {status && (
+        <div className="absolute top-2 right-2 z-10 font-cyber bg-black bg-opacity-50 px-3 py-1 rounded flex items-center">
+          <Battery className={`w-4 h-4 mr-1 ${
+            status.batteryLevel < 30 ? 'text-cyber-pink' : 
+            status.batteryLevel < 60 ? 'text-cyber-yellow' : 
+            'text-cyber-green'
+          }`} />
+          <span className={`text-xs ${
+            status.batteryLevel < 30 ? 'text-cyber-pink' : 
+            status.batteryLevel < 60 ? 'text-cyber-yellow' : 
+            'text-cyber-green'
+          }`}>
+            {status.batteryLevel}%
+          </span>
         </div>
       )}
     </div>

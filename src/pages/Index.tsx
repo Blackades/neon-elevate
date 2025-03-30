@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import DigitalRain from '@/components/DigitalRain';
 import LoginScreen from '@/components/LoginScreen';
@@ -8,7 +8,7 @@ import StatusPanel from '@/components/StatusPanel';
 import ControlPanel from '@/components/ControlPanel';
 import AlertsPanel from '@/components/AlertsPanel';
 import LogsPanel from '@/components/LogsPanel';
-import { useSimulatedElevator } from '@/services/mqttService';
+import { useMqtt, useSimulatedElevator } from '@/services/mqttService';
 import { 
   ArrowLeftRight,
   LayoutDashboard,
@@ -18,31 +18,83 @@ import {
   LogOut
 } from 'lucide-react';
 
+// Default MQTT credentials from Arduino sketch
+const DEFAULT_MQTT_USER = "hivemq.webclient.1741534338297";
+const DEFAULT_MQTT_PASSWORD = "oU0N>eu5g<c;pV9AE$4F";
+
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [mqttUsername, setMqttUsername] = useState(DEFAULT_MQTT_USER);
+  const [mqttPassword, setMqttPassword] = useState(DEFAULT_MQTT_PASSWORD);
   const { toast } = useToast();
   
-  // For demo purposes, use the simulated elevator
-  // In production, you would use the real MQTT connection with useMqtt hook
+  // Use real MQTT connection with prefilled credentials from Arduino sketch
   const { 
     connected, 
     elevatorStatus, 
     alerts, 
     logs, 
-    publishCommand 
-  } = useSimulatedElevator();
+    publishCommand, 
+    error: mqttError 
+  } = useMqtt({
+    username: mqttUsername,
+    password: mqttPassword,
+    onConnect: () => {
+      toast({
+        title: "MQTT Connected",
+        description: "Successfully connected to elevator MQTT broker",
+      });
+    },
+    onDisconnect: () => {
+      toast({
+        title: "MQTT Disconnected",
+        description: "Connection to elevator MQTT broker lost",
+        variant: "destructive"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "MQTT Error",
+        description: error.message,
+        variant: "destructive"
+      });
+      setAuthError(error.message);
+    }
+  });
+  
+  // Auto-update status indicator
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  
+  // Update the last updated timestamp every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLastUpdated(new Date());
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Show MQTT errors
+  useEffect(() => {
+    if (mqttError) {
+      console.error("MQTT Error:", mqttError);
+      setAuthError(mqttError.message);
+    }
+  }, [mqttError]);
 
   const handleLogin = (username: string, password: string) => {
     setIsAuthenticating(true);
     setAuthError(null);
     
+    // Update MQTT credentials
+    setMqttUsername(username || DEFAULT_MQTT_USER);
+    setMqttPassword(password || DEFAULT_MQTT_PASSWORD);
+    
     // Simulate authentication with MQTT broker
     setTimeout(() => {
-      // For demo purposes, accept any credentials
-      // In a real app, you would validate against the MQTT broker
       setIsAuthenticated(true);
       setIsAuthenticating(false);
       
@@ -71,6 +123,8 @@ const Index = () => {
           onLogin={handleLogin} 
           isLoading={isAuthenticating}
           error={authError}
+          defaultUsername={DEFAULT_MQTT_USER}
+          defaultPassword={DEFAULT_MQTT_PASSWORD}
         />
       </>
     );
@@ -152,7 +206,7 @@ const Index = () => {
               <h1 className="text-xl md:text-2xl font-cyber">
                 <span className="text-cyber-blue">Neon</span>
                 <span className="text-cyber-pink">Elevate</span>
-                <span className="text-cyber-blue ml-2 text-sm md:text-base">v1.0</span>
+                <span className="text-cyber-blue ml-2 text-sm md:text-base">v2.0</span>
               </h1>
               
               <div className="flex items-center space-x-3">
@@ -164,7 +218,7 @@ const Index = () => {
                 </div>
                 
                 <div className="text-cyber-yellow text-xs bg-cyber-dark px-3 py-1 rounded-full border border-cyber-yellow">
-                  CYBERDECK ACTIVE
+                  LIVE SYSTEM
                 </div>
               </div>
             </div>
@@ -239,7 +293,7 @@ const Index = () => {
           <footer className="bg-cyber-dark border-t border-cyber-blue py-2 px-4">
             <div className="flex justify-between items-center text-xs text-gray-400">
               <span>NeonElevate Control Interface</span>
-              <span>© 2023 CyberSystems Inc.</span>
+              <span>Last update: {lastUpdated.toLocaleTimeString()}</span>
             </div>
           </footer>
         </div>

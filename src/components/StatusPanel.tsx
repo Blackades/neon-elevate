@@ -9,7 +9,11 @@ import {
   ShieldAlert,
   ArrowUp,
   ArrowDown,
-  Clock
+  Clock,
+  Cpu,
+  Signal,
+  Database,
+  Server
 } from 'lucide-react';
 
 interface StatusPanelProps {
@@ -34,10 +38,13 @@ const StatusPanel: React.FC<StatusPanelProps> = ({ status, className }) => {
   
   // Determine status color based on overall health
   const getHealthStatus = () => {
-    if (status.maintenance) return "text-cyber-yellow";
+    if (status.systemState === 'MAINTENANCE') return "text-cyber-yellow";
     if (status.batteryLevel < 30 || status.temperature > 35) return "text-cyber-pink";
     return "text-cyber-green";
   };
+
+  // Convert battery percentage to voltage (approximation)
+  const batteryVoltage = ((status.batteryLevel / 100) * 12.6).toFixed(1);
 
   return (
     <div className={`cyber-panel ${className || ''}`}>
@@ -47,7 +54,7 @@ const StatusPanel: React.FC<StatusPanelProps> = ({ status, className }) => {
           <div className={`flex items-center ${getHealthStatus()}`}>
             <div className="w-2 h-2 rounded-full bg-current mr-2 animate-pulse"></div>
             <span className="text-xs uppercase">
-              {status.maintenance ? "MAINTENANCE" : 
+              {status.systemState === 'MAINTENANCE' ? "MAINTENANCE" : 
                 (getHealthStatus() === "text-cyber-pink" ? "WARNING" : "NOMINAL")}
             </span>
           </div>
@@ -84,7 +91,7 @@ const StatusPanel: React.FC<StatusPanelProps> = ({ status, className }) => {
             </div>
             <span className={`font-mono ${status.batteryLevel < 30 ? 'text-cyber-pink' : 
               status.batteryLevel < 50 ? 'text-cyber-yellow' : 'text-cyber-blue'}`}>
-              {status.batteryLevel}%
+              {status.batteryLevel}% ({batteryVoltage}V)
             </span>
           </div>
           <Progress value={status.batteryLevel} 
@@ -134,9 +141,24 @@ const StatusPanel: React.FC<StatusPanelProps> = ({ status, className }) => {
           </div>
           
           <div className="flex justify-between items-center mt-3">
-            <span className="text-sm text-gray-300">Speed</span>
+            <span className="text-sm text-gray-300">Target Floor</span>
             <span className="font-mono text-cyber-blue">
-              {status.speed.toFixed(1)} m/s
+              {status.target || 'None'}
+            </span>
+          </div>
+        </div>
+        
+        {/* System State */}
+        <div className="bg-cyber-dark bg-opacity-50 p-3 rounded">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-300">System State</span>
+            <span className={`font-mono ${
+              status.systemState === 'NORMAL' ? 'text-cyber-green' : 
+              status.systemState === 'MAINTENANCE' ? 'text-cyber-yellow' : 
+              status.systemState === 'EMERGENCY' ? 'text-cyber-pink' : 
+              'text-cyber-blue'
+            }`}>
+              {status.systemState}
             </span>
           </div>
         </div>
@@ -148,6 +170,51 @@ const StatusPanel: React.FC<StatusPanelProps> = ({ status, className }) => {
             {status.doorOpen ? 'OPEN' : 'CLOSED'}
           </span>
         </div>
+        
+        {/* ESP Stats - Only if available */}
+        {(status.esp_heap || status.esp_uptime || status.wifi_rssi) && (
+          <div className="bg-cyber-dark bg-opacity-50 p-3 rounded">
+            <div className="text-xs text-cyber-blue mb-2 uppercase">ESP8266 Stats</div>
+            
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {status.esp_heap && (
+                <div className="flex items-center">
+                  <Database className="w-3 h-3 mr-1 text-cyber-yellow" />
+                  <span className="text-gray-300">Heap: </span>
+                  <span className="ml-1 text-cyber-yellow">{status.esp_heap} bytes</span>
+                </div>
+              )}
+              
+              {status.esp_uptime && (
+                <div className="flex items-center">
+                  <Clock className="w-3 h-3 mr-1 text-cyber-blue" />
+                  <span className="text-gray-300">Up: </span>
+                  <span className="ml-1 text-cyber-blue">
+                    {Math.floor(status.esp_uptime / 3600)}h {Math.floor((status.esp_uptime % 3600) / 60)}m
+                  </span>
+                </div>
+              )}
+              
+              {status.wifi_rssi && (
+                <div className="flex items-center">
+                  <Signal className="w-3 h-3 mr-1 text-cyber-green" />
+                  <span className="text-gray-300">RSSI: </span>
+                  <span className="ml-1 text-cyber-green">{status.wifi_rssi} dBm</span>
+                </div>
+              )}
+              
+              {status.mega_connected !== undefined && (
+                <div className="flex items-center">
+                  <Server className="w-3 h-3 mr-1 text-cyber-blue" />
+                  <span className="text-gray-300">Mega: </span>
+                  <span className={`ml-1 ${status.mega_connected ? 'text-cyber-green' : 'text-cyber-pink'}`}>
+                    {status.mega_connected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Last updated timestamp */}
         <div className="text-xs text-gray-500 flex items-center mt-2">

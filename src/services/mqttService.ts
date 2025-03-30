@@ -2,17 +2,18 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Client, Message } from 'paho-mqtt';
 
-// MQTT broker settings
+// MQTT broker settings - using the one specified in the Arduino sketch
 const BROKER_URL = 'db48b4ddcc1c4f92b6823370ed6af6ba.s1.eu.hivemq.cloud';
 const BROKER_PORT = 8884; // Secure WebSocket port
 const CLIENT_ID = `elevator_client_${Math.random().toString(16).substr(2, 8)}`;
 
-// Topics to subscribe to
+// Topics to subscribe to - matching Arduino sketch
 const TOPICS = {
   STATUS: 'elevator/status',
   ALERTS: 'elevator/alerts',
   LOGS: 'elevator/logs',
-  CONNECTION: 'elevator/connection'
+  CONNECTION: 'elevator/connection',
+  COMMAND_ACK: 'elevator/commandack'
 };
 
 // Topic for publishing commands
@@ -28,10 +29,11 @@ interface MqttConnectionOptions {
   onError?: (error: Error) => void;
 }
 
-// Interface for elevator data
+// Interface for elevator data - enhanced to match Arduino data
 export interface ElevatorStatus {
   floor: number;
   totalFloors: number;
+  target?: number;
   direction: 'up' | 'down' | 'idle';
   doorOpen: boolean;
   speed: number;
@@ -39,6 +41,12 @@ export interface ElevatorStatus {
   weight: number;
   batteryLevel: number;
   maintenance: boolean;
+  systemState: string;
+  esp_heap?: number;
+  esp_uptime?: number;
+  wifi_rssi?: number;
+  mega_connected?: boolean;
+  mqtt_connected?: boolean;
   lastUpdated: string;
 }
 
@@ -47,6 +55,7 @@ export interface ElevatorAlert {
   type: 'critical' | 'warning' | 'info';
   message: string;
   timestamp: string;
+  code?: number;
 }
 
 export interface ElevatorLog {
@@ -54,12 +63,15 @@ export interface ElevatorLog {
   action: string;
   details: string;
   timestamp: string;
+  event?: string;
 }
 
 export interface ElevatorCommand {
-  action: 'move' | 'stop' | 'open' | 'close' | 'emergency' | 'reset' | 'maintenance';
+  action: 'move' | 'stop' | 'open' | 'close' | 'emergency' | 'reset' | 'maintenance' | 'display_message' | 'restart_esp' | 'wifi_scan';
   floor?: number;
   override?: boolean;
+  message?: string;
+  id?: string;
   [key: string]: any;
 }
 
@@ -71,6 +83,7 @@ export const useMqtt = (options: MqttConnectionOptions) => {
   const [alerts, setAlerts] = useState<ElevatorAlert[]>([]);
   const [logs, setLogs] = useState<ElevatorLog[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
+  const [commandAcks, setCommandAcks] = useState<any[]>([]);
   
   const clientRef = useRef<Client | null>(null);
 
@@ -88,16 +101,52 @@ export const useMqtt = (options: MqttConnectionOptions) => {
     // Update state based on topic
     switch (topic) {
       case TOPICS.STATUS:
-        setElevatorStatus(payload);
+        const newStatus: ElevatorStatus = {
+          floor: payload.floor || 1,
+          totalFloors: 3, // Hardcoded to 3 floors as per Arduino
+          target: payload.target,
+          direction: payload.movement || 'idle',
+          doorOpen: payload.doors || false,
+          speed: 0, // Not provided in Arduino data
+          temperature: payload.temperature || 25,
+          weight: payload.weight || 0,
+          batteryLevel: payload.battery ? Math.round((payload.battery / 12.6) * 100) : 100, // Convert voltage to percentage
+          maintenance: payload.state === 'MAINTENANCE',
+          systemState: payload.state || 'NORMAL',
+          esp_heap: payload.esp_heap,
+          esp_uptime: payload.esp_uptime,
+          wifi_rssi: payload.wifi_rssi,
+          mega_connected: payload.mega_connected,
+          mqtt_connected: payload.mqtt_connected,
+          lastUpdated: new Date().toISOString()
+        };
+        setElevatorStatus(newStatus);
         break;
       case TOPICS.ALERTS:
-        setAlerts(prev => [payload, ...prev].slice(0, 100)); // Keep last 100 alerts
+        const newAlert: ElevatorAlert = {
+          id: payload.id || Date.now().toString(),
+          type: payload.code > 2 ? 'critical' : payload.code > 0 ? 'warning' : 'info',
+          message: payload.message || 'System alert',
+          timestamp: new Date().toISOString(),
+          code: payload.code
+        };
+        setAlerts(prev => [newAlert, ...prev].slice(0, 100)); // Keep last 100 alerts
         break;
       case TOPICS.LOGS:
-        setLogs(prev => [payload, ...prev].slice(0, 200)); // Keep last 200 logs
+        const newLog: ElevatorLog = {
+          id: payload.id || Date.now().toString(),
+          action: payload.action || 'SYSTEM',
+          details: payload.details || '',
+          timestamp: new Date().toISOString(),
+          event: payload.event
+        };
+        setLogs(prev => [newLog, ...prev].slice(0, 200)); // Keep last 200 logs
         break;
       case TOPICS.CONNECTION:
-        setConnectionStatus(payload.status);
+        setConnectionStatus(payload.status || 'unknown');
+        break;
+      case TOPICS.COMMAND_ACK:
+        setCommandAcks(prev => [payload, ...prev].slice(0, 50)); // Keep last 50 command acks
         break;
     }
   }, [options]);
@@ -183,10 +232,25 @@ export const useMqtt = (options: MqttConnectionOptions) => {
     }
     
     try {
+      // Generate a command ID if not provided
+      if (!command.id) {
+        command.id = `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      }
+      
       const message = new Message(JSON.stringify(command));
       message.destinationName = COMMAND_TOPIC;
       clientRef.current.send(message);
       console.log('Published command:', command);
+      
+      // Add to logs
+      const newLog: ElevatorLog = {
+        id: Date.now().toString(),
+        action: 'COMMAND_SENT',
+        details: `Command ${command.action} sent to elevator`,
+        timestamp: new Date().toISOString()
+      };
+      setLogs(prev => [newLog, ...prev]);
+      
       return true;
     } catch (err) {
       console.error('Error publishing command:', err);
@@ -202,6 +266,7 @@ export const useMqtt = (options: MqttConnectionOptions) => {
     alerts,
     logs,
     connectionStatus,
+    commandAcks,
     publishCommand
   };
 };
