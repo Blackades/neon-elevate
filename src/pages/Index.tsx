@@ -36,6 +36,10 @@ const Index = () => {
   const [mqttPassword, setMqttPassword] = useState(DEFAULT_MQTT_PASSWORD);
   const { toast } = useToast();
   
+  // Track if we've shown connection notifications to avoid spamming
+  const [shownConnectNotification, setShownConnectNotification] = useState(false);
+  const [shownDisconnectNotification, setShownDisconnectNotification] = useState(false);
+  
   // Use real MQTT connection with prefilled credentials from Arduino sketch
   const { 
     connected, 
@@ -48,25 +52,36 @@ const Index = () => {
     username: mqttUsername,
     password: mqttPassword,
     onConnect: () => {
-      toast({
-        title: "MQTT Connected",
-        description: "Successfully connected to elevator MQTT broker",
-      });
+      if (!shownConnectNotification) {
+        toast({
+          title: "MQTT Connected",
+          description: "Successfully connected to elevator MQTT broker",
+        });
+        setShownConnectNotification(true);
+        setShownDisconnectNotification(false);
+      }
     },
     onDisconnect: () => {
-      toast({
-        title: "MQTT Disconnected",
-        description: "Connection to elevator MQTT broker lost",
-        variant: "destructive"
-      });
+      if (!shownDisconnectNotification) {
+        toast({
+          title: "MQTT Disconnected",
+          description: "Connection to elevator MQTT broker lost",
+          variant: "destructive"
+        });
+        setShownDisconnectNotification(true);
+        setShownConnectNotification(false);
+      }
     },
     onError: (error) => {
-      toast({
-        title: "MQTT Error",
-        description: error.message,
-        variant: "destructive"
-      });
-      setAuthError(error.message);
+      // Only show an error toast once per error message
+      if (!authError || authError !== error.message) {
+        toast({
+          title: "MQTT Error",
+          description: error.message,
+          variant: "destructive"
+        });
+        setAuthError(error.message);
+      }
     }
   });
   
@@ -94,6 +109,10 @@ const Index = () => {
     setIsAuthenticating(true);
     setAuthError(null);
     
+    // Reset notification flags
+    setShownConnectNotification(false);
+    setShownDisconnectNotification(false);
+    
     // Update MQTT credentials
     setMqttUsername(username || DEFAULT_MQTT_USER);
     setMqttPassword(password || DEFAULT_MQTT_PASSWORD);
@@ -112,6 +131,9 @@ const Index = () => {
   
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setShownConnectNotification(false);
+    setShownDisconnectNotification(false);
+    
     toast({
       title: "Logged Out",
       description: "Disconnected from elevator control system",

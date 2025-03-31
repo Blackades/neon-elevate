@@ -85,6 +85,12 @@ export const useMqtt = (options: MqttConnectionOptions) => {
   const [commandAcks, setCommandAcks] = useState<any[]>([]);
   
   const clientRef = useRef<Client | null>(null);
+  const optionsRef = useRef(options);
+  
+  // Update options ref when options change
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   // Handle incoming messages
   const handleMessage = useCallback((message: Message) => {
@@ -93,8 +99,8 @@ export const useMqtt = (options: MqttConnectionOptions) => {
     
     console.log(`Received message on ${topic}:`, payload);
     
-    if (options.onMessage) {
-      options.onMessage(topic, payload);
+    if (optionsRef.current.onMessage) {
+      optionsRef.current.onMessage(topic, payload);
     }
     
     // Update state based on topic
@@ -148,80 +154,147 @@ export const useMqtt = (options: MqttConnectionOptions) => {
         setCommandAcks(prev => [payload, ...prev].slice(0, 50)); // Keep last 50 command acks
         break;
     }
-  }, [options]);
+  }, []);
 
-  // Connect to MQTT broker
+  // Connect to MQTT broker - This effect sets up the initial connection and cleanup
   useEffect(() => {
-    const client = new Client(BROKER_URL, BROKER_PORT, CLIENT_ID);
-    
-    client.onConnectionLost = (responseObject) => {
-      console.log('Connection lost:', responseObject.errorMessage);
-      setConnected(false);
-      setError(new Error(responseObject.errorMessage));
+    // Only create a new client if one doesn't exist
+    if (!clientRef.current) {
+      console.log('Creating new MQTT client');
+      const client = new Client(BROKER_URL, BROKER_PORT, CLIENT_ID);
       
-      if (options.onDisconnect) {
-        options.onDisconnect();
-      }
+      client.onConnectionLost = (responseObject) => {
+        console.log('Connection lost:', responseObject.errorMessage);
+        setConnected(false);
+        setError(new Error(responseObject.errorMessage));
+        
+        if (optionsRef.current.onDisconnect) {
+          optionsRef.current.onDisconnect();
+        }
+        
+        // Try to reconnect after 5 seconds
+        setTimeout(() => connect(), 5000);
+      };
       
-      // Try to reconnect after 5 seconds
-      setTimeout(() => connect(), 5000);
-    };
-    
-    client.onMessageArrived = handleMessage;
+      client.onMessageArrived = handleMessage;
+      clientRef.current = client;
+    }
     
     const connect = () => {
-      try {
-        client.connect({
-          useSSL: true,
-          userName: options.username,
-          password: options.password,
-          onSuccess: () => {
-            console.log('Connected to MQTT broker');
-            setConnected(true);
-            setError(null);
-            
-            // Subscribe to topics
-            Object.values(TOPICS).forEach(topic => {
-              client.subscribe(topic);
-              console.log(`Subscribed to ${topic}`);
-            });
-            
-            if (options.onConnect) {
-              options.onConnect();
+      // Only attempt to connect if we're not already connected
+      if (clientRef.current && !clientRef.current.isConnected()) {
+        try {
+          console.log('Connecting to MQTT broker');
+          clientRef.current.connect({
+            useSSL: true,
+            userName: optionsRef.current.username,
+            password: optionsRef.current.password,
+            onSuccess: () => {
+              console.log('Connected to MQTT broker');
+              setConnected(true);
+              setError(null);
+              
+              // Subscribe to topics
+              Object.values(TOPICS).forEach(topic => {
+                if (clientRef.current) {
+                  clientRef.current.subscribe(topic);
+                  console.log(`Subscribed to ${topic}`);
+                }
+              });
+              
+              if (optionsRef.current.onConnect) {
+                optionsRef.current.onConnect();
+              }
+            },
+            onFailure: (err) => {
+              console.error('Failed to connect to MQTT broker:', err);
+              setConnected(false);
+              setError(new Error(err.errorMessage));
+              
+              if (optionsRef.current.onError) {
+                optionsRef.current.onError(new Error(err.errorMessage));
+              }
             }
-          },
-          onFailure: (err) => {
-            console.error('Failed to connect to MQTT broker:', err);
-            setConnected(false);
-            setError(new Error(err.errorMessage));
-            
-            if (options.onError) {
-              options.onError(new Error(err.errorMessage));
-            }
+          });
+        } catch (err) {
+          console.error('Error connecting to MQTT broker:', err);
+          setError(err instanceof Error ? err : new Error(String(err)));
+          
+          if (optionsRef.current.onError) {
+            optionsRef.current.onError(err instanceof Error ? err : new Error(String(err)));
           }
-        });
-      } catch (err) {
-        console.error('Error connecting to MQTT broker:', err);
-        setError(err instanceof Error ? err : new Error(String(err)));
-        
-        if (options.onError) {
-          options.onError(err instanceof Error ? err : new Error(String(err)));
         }
+      } else if (clientRef.current && clientRef.current.isConnected()) {
+        console.log('Already connected to MQTT broker');
       }
     };
     
-    clientRef.current = client;
     connect();
     
+    // Cleanup function
     return () => {
-      if (client.isConnected()) {
+      if (clientRef.current && clientRef.current.isConnected()) {
         Object.values(TOPICS).forEach(topic => {
-          client.unsubscribe(topic);
+          if (clientRef.current) {
+            clientRef.current.unsubscribe(topic);
+          }
         });
-        client.disconnect();
+        clientRef.current.disconnect();
+        console.log('Disconnected from MQTT broker during cleanup');
       }
     };
-  }, [options, handleMessage]);
+  }, []); // Empty dependency array to ensure this only runs once on mount
+  
+  // Effect for handling credential changes - only reconnect if credentials change
+  useEffect(() => {
+    // Check if credentials changed and we need to reconnect
+    if (clientRef.current) {
+      if (clientRef.current.isConnected()) {
+        // Disconnect current connection
+        Object.values(TOPICS).forEach(topic => {
+          if (clientRef.current) {
+            clientRef.current.unsubscribe(topic);
+          }
+        });
+        clientRef.current.disconnect();
+        console.log('Disconnected due to credential change');
+      }
+      
+      // Reconnect with new credentials
+      console.log('Reconnecting with new credentials');
+      clientRef.current.connect({
+        useSSL: true,
+        userName: options.username,
+        password: options.password,
+        onSuccess: () => {
+          console.log('Reconnected to MQTT broker with new credentials');
+          setConnected(true);
+          setError(null);
+          
+          // Subscribe to topics
+          Object.values(TOPICS).forEach(topic => {
+            if (clientRef.current) {
+              clientRef.current.subscribe(topic);
+              console.log(`Subscribed to ${topic}`);
+            }
+          });
+          
+          if (options.onConnect) {
+            options.onConnect();
+          }
+        },
+        onFailure: (err) => {
+          console.error('Failed to reconnect to MQTT broker:', err);
+          setConnected(false);
+          setError(new Error(err.errorMessage));
+          
+          if (options.onError) {
+            options.onError(new Error(err.errorMessage));
+          }
+        }
+      });
+    }
+  }, [options.username, options.password]); // Only react to credential changes
 
   // Function to publish a command
   const publishCommand = useCallback((command: ElevatorCommand) => {
