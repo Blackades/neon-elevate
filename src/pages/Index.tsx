@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import DigitalRain from '@/components/DigitalRain';
@@ -24,7 +23,6 @@ import {
 } from 'lucide-react';
 import { parseCommand } from '@/services/commandParser';
 
-// Default MQTT credentials from Arduino sketch
 const DEFAULT_MQTT_USER = "hivemq.webclient.1741534338297";
 const DEFAULT_MQTT_PASSWORD = "oU0N>eu5g<c;pV9AE$4F";
 
@@ -37,15 +35,12 @@ const Index = () => {
   const [mqttPassword, setMqttPassword] = useState(DEFAULT_MQTT_PASSWORD);
   const { toast } = useToast();
   
-  // Track if we've shown connection notifications to avoid spamming
   const [shownConnectNotification, setShownConnectNotification] = useState(false);
   const [shownDisconnectNotification, setShownDisconnectNotification] = useState(false);
   
-  // State for LCD message
   const [lcdMessage, setLcdMessage] = useState('');
   const [lcdMessageLine2, setLcdMessageLine2] = useState('');
   
-  // Use real MQTT connection with prefilled credentials from Arduino sketch
   const { 
     connected, 
     elevatorStatus, 
@@ -79,7 +74,6 @@ const Index = () => {
       }
     },
     onError: (error) => {
-      // Only show an error toast once per error message
       if (!authError || authError !== error.message) {
         toast({
           title: "MQTT Error",
@@ -91,10 +85,8 @@ const Index = () => {
     }
   });
   
-  // Auto-update status indicator
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   
-  // Update the last updated timestamp every second
   useEffect(() => {
     const interval = setInterval(() => {
       setLastUpdated(new Date());
@@ -103,7 +95,6 @@ const Index = () => {
     return () => clearInterval(interval);
   }, []);
   
-  // Show MQTT errors
   useEffect(() => {
     if (mqttError) {
       console.error("MQTT Error:", mqttError);
@@ -115,15 +106,12 @@ const Index = () => {
     setIsAuthenticating(true);
     setAuthError(null);
     
-    // Reset notification flags
     setShownConnectNotification(false);
     setShownDisconnectNotification(false);
     
-    // Update MQTT credentials
     setMqttUsername(username || DEFAULT_MQTT_USER);
     setMqttPassword(password || DEFAULT_MQTT_PASSWORD);
     
-    // Simulate authentication with MQTT broker
     setTimeout(() => {
       setIsAuthenticated(true);
       setIsAuthenticating(false);
@@ -146,16 +134,13 @@ const Index = () => {
     });
   };
 
-  // Handle voice commands
   const handleVoiceCommand = useCallback((text: string) => {
     if (!text.trim()) return;
     
     try {
-      // Try to parse the voice command
       const command = parseCommand(text);
       
       if (command) {
-        // Execute the command
         publishCommand(command);
         
         toast({
@@ -178,11 +163,8 @@ const Index = () => {
     }
   }, [publishCommand, toast]);
   
-  // Handle terminal commands
   const handleTerminalCommand = useCallback((text: string) => {
     try {
-      // Try to send the command directly
-      // First check if it's raw JSON
       if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
         try {
           const jsonCommand = JSON.parse(text);
@@ -193,7 +175,6 @@ const Index = () => {
         }
       }
       
-      // Try to parse as natural language
       const command = parseCommand(text);
       
       if (command) {
@@ -207,7 +188,6 @@ const Index = () => {
     }
   }, [publishCommand]);
   
-  // Handle sending LCD message
   const handleSendLCDMessage = useCallback(() => {
     if (!lcdMessage.trim()) {
       toast({
@@ -234,14 +214,12 @@ const Index = () => {
         description: "LCD message sent to elevator display"
       });
       
-      // Also send as a display_message command for compatibility
       publishCommand({
-        action: 'display_message',
+        command: 'display_message',
         message: lcdMessage.trim(),
         line2: lcdMessageLine2.trim() || undefined
       });
       
-      // Clear input fields
       setLcdMessage('');
       setLcdMessageLine2('');
     } else {
@@ -253,7 +231,6 @@ const Index = () => {
     }
   }, [lcdMessage, lcdMessageLine2, publishLCDMessage, publishCommand, toast]);
   
-  // If not authenticated, show login screen
   if (!isAuthenticated) {
     return (
       <>
@@ -275,9 +252,7 @@ const Index = () => {
       <DigitalRain />
       <div className="scanline"></div>
       
-      {/* Main Layout */}
       <div className="flex flex-col md:flex-row h-screen">
-        {/* Sidebar */}
         <div className="w-full md:w-16 md:min-h-screen bg-cyber-dark border-r border-cyber-blue flex md:flex-col justify-between p-2">
           <div className="flex md:flex-col items-center space-x-2 md:space-x-0 md:space-y-4">
             <button 
@@ -371,9 +346,7 @@ const Index = () => {
           </button>
         </div>
         
-        {/* Main Content */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {/* Header - Fixed to avoid overlapping text issues */}
           <header className="bg-cyber-dark border-b border-cyber-blue py-3 px-4">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
               <div className="flex-shrink-0">
@@ -384,9 +357,7 @@ const Index = () => {
                 </h1>
               </div>
               
-              {/* System Status Container - Repositioned */}
               <div className="flex flex-wrap gap-4 items-center">
-                {/* Floor and System Status */}
                 <div className="bg-cyber-dark/50 border border-cyber-blue/30 rounded px-3 py-1">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
@@ -409,7 +380,6 @@ const Index = () => {
                   </div>
                 </div>
                 
-                {/* System Online Status */}
                 <div className="bg-cyber-dark/50 border border-cyber-blue/30 rounded px-3 py-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400">System:</span>
@@ -431,12 +401,10 @@ const Index = () => {
               </div>
               
               <div className="flex items-center gap-3">
-                {/* Live System Badge */}
                 <div className="text-cyber-yellow text-xs bg-cyber-dark px-3 py-1 rounded-full border border-cyber-yellow">
                   LIVE SYSTEM
                 </div>
                 
-                {/* Battery display */}
                 {elevatorStatus && (
                   <div className="hidden md:flex items-center gap-1 px-2 py-1 bg-cyber-dark bg-opacity-50 rounded">
                     <span className={`text-xs ${
@@ -452,22 +420,17 @@ const Index = () => {
             </div>
           </header>
           
-          {/* Content Area */}
           <main className="flex-1 overflow-auto p-4">
-            {/* Dashboard View */}
             {activeTab === 'dashboard' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 auto-rows-min">
-                {/* 3D Visualization - spans 2 columns */}
                 <div className="lg:col-span-2 h-[300px] md:h-[400px]">
                   <ElevatorVisualization status={elevatorStatus} />
                 </div>
                 
-                {/* Status Panel */}
                 <div>
                   <StatusPanel status={elevatorStatus} />
                 </div>
                 
-                {/* Control Panel - spans 2 columns on larger screens */}
                 <div className="lg:col-span-2">
                   <ControlPanel 
                     status={elevatorStatus} 
@@ -475,14 +438,12 @@ const Index = () => {
                   />
                 </div>
                 
-                {/* Alerts Panel */}
                 <div>
                   <AlertsPanel alerts={alerts} />
                 </div>
               </div>
             )}
             
-            {/* Control View */}
             {activeTab === 'control' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 h-[300px] md:h-[400px]">
@@ -502,28 +463,24 @@ const Index = () => {
               </div>
             )}
             
-            {/* Alerts View */}
             {activeTab === 'alerts' && (
               <div className="grid grid-cols-1 gap-4">
                 <AlertsPanel alerts={alerts} />
               </div>
             )}
             
-            {/* Logs View */}
             {activeTab === 'logs' && (
               <div className="grid grid-cols-1 gap-4">
                 <LogsPanel logs={logs} />
               </div>
             )}
             
-            {/* Terminal View */}
             {activeTab === 'terminal' && (
               <div className="grid grid-cols-1 gap-4">
                 <TerminalPanel onSendCommand={handleTerminalCommand} />
               </div>
             )}
             
-            {/* Voice Control View */}
             {activeTab === 'voice' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -535,7 +492,6 @@ const Index = () => {
               </div>
             )}
             
-            {/* LCD Message View */}
             {activeTab === 'lcd' && (
               <div className="grid grid-cols-1 gap-4">
                 <div className="p-4 bg-cyber-dark border border-cyber-blue rounded-md">
@@ -593,7 +549,6 @@ const Index = () => {
                     </div>
                   </div>
                   
-                  {/* LCD Display Preview */}
                   <div className="mt-6">
                     <h3 className="text-cyber-yellow text-sm mb-2">LCD Preview:</h3>
                     <div className="border-2 border-cyber-blue bg-cyber-black p-4 rounded-md font-mono text-cyber-green">
@@ -607,7 +562,6 @@ const Index = () => {
                   </div>
                 </div>
                 
-                {/* Recent LCD Messages in Logs */}
                 <div className="p-4 bg-cyber-dark border border-cyber-blue rounded-md">
                   <h3 className="text-cyber-blue mb-4">Recent LCD Messages</h3>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -632,7 +586,6 @@ const Index = () => {
             )}
           </main>
           
-          {/* Footer */}
           <footer className="bg-cyber-dark border-t border-cyber-blue py-2 px-4">
             <div className="flex justify-between items-center text-xs text-gray-400">
               <span>NeonElevate Control Interface</span>
