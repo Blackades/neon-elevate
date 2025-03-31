@@ -12,7 +12,8 @@ const TOPICS = {
   ALERTS: 'elevator/alerts',
   LOGS: 'elevator/logs',
   CONNECTION: 'elevator/connection',
-  COMMAND_ACK: 'elevator/commandack'
+  COMMAND_ACK: 'elevator/commandack',
+  LCD_MESSAGE: 'elevator/lcd_message' // Added new topic for LCD messages
 };
 
 // Topic for publishing commands
@@ -70,8 +71,15 @@ export interface ElevatorCommand {
   floor?: number;
   override?: boolean;
   message?: string;
+  line2?: string;
   id?: string;
   [key: string]: any;
+}
+
+// Interface for LCD message
+export interface LCDMessage {
+  message: string;
+  line2?: string;
 }
 
 // Hook for using MQTT in React components
@@ -86,6 +94,7 @@ export const useMqtt = (options: MqttConnectionOptions) => {
   
   const clientRef = useRef<Client | null>(null);
   const optionsRef = useRef(options);
+  const connectionAttemptsRef = useRef(false);
   
   // Update options ref when options change
   useEffect(() => {
@@ -158,7 +167,12 @@ export const useMqtt = (options: MqttConnectionOptions) => {
 
   // Connect to MQTT broker - This effect sets up the initial connection and cleanup
   useEffect(() => {
-    // Only create a new client if one doesn't exist
+    // Only attempt connection once to prevent infinite loops
+    if (connectionAttemptsRef.current) {
+      return;
+    }
+    
+    // Create a new client if one doesn't exist
     if (!clientRef.current) {
       console.log('Creating new MQTT client');
       const client = new Client(BROKER_URL, BROKER_PORT, CLIENT_ID);
@@ -224,11 +238,13 @@ export const useMqtt = (options: MqttConnectionOptions) => {
             optionsRef.current.onError(err instanceof Error ? err : new Error(String(err)));
           }
         }
-      } else if (clientRef.current && clientRef.current.isConnected()) {
-        console.log('Already connected to MQTT broker');
       }
     };
     
+    // Set connection attempt flag to true to avoid reconnection loops
+    connectionAttemptsRef.current = true;
+    
+    // Connect once on component mount
     connect();
     
     // Cleanup function
@@ -247,6 +263,11 @@ export const useMqtt = (options: MqttConnectionOptions) => {
   
   // Effect for handling credential changes - only reconnect if credentials change
   useEffect(() => {
+    // Skip if this is the initial render
+    if (!connectionAttemptsRef.current) {
+      return;
+    }
+    
     // Check if credentials changed and we need to reconnect
     if (clientRef.current) {
       if (clientRef.current.isConnected()) {
@@ -260,39 +281,43 @@ export const useMqtt = (options: MqttConnectionOptions) => {
         console.log('Disconnected due to credential change');
       }
       
-      // Reconnect with new credentials
-      console.log('Reconnecting with new credentials');
-      clientRef.current.connect({
-        useSSL: true,
-        userName: options.username,
-        password: options.password,
-        onSuccess: () => {
-          console.log('Reconnected to MQTT broker with new credentials');
-          setConnected(true);
-          setError(null);
-          
-          // Subscribe to topics
-          Object.values(TOPICS).forEach(topic => {
-            if (clientRef.current) {
-              clientRef.current.subscribe(topic);
-              console.log(`Subscribed to ${topic}`);
+      // Reconnect with new credentials after a short delay
+      setTimeout(() => {
+        if (clientRef.current) {
+          console.log('Reconnecting with new credentials');
+          clientRef.current.connect({
+            useSSL: true,
+            userName: options.username,
+            password: options.password,
+            onSuccess: () => {
+              console.log('Reconnected to MQTT broker with new credentials');
+              setConnected(true);
+              setError(null);
+              
+              // Subscribe to topics
+              Object.values(TOPICS).forEach(topic => {
+                if (clientRef.current) {
+                  clientRef.current.subscribe(topic);
+                  console.log(`Subscribed to ${topic}`);
+                }
+              });
+              
+              if (options.onConnect) {
+                options.onConnect();
+              }
+            },
+            onFailure: (err) => {
+              console.error('Failed to reconnect to MQTT broker:', err);
+              setConnected(false);
+              setError(new Error(err.errorMessage));
+              
+              if (options.onError) {
+                options.onError(new Error(err.errorMessage));
+              }
             }
           });
-          
-          if (options.onConnect) {
-            options.onConnect();
-          }
-        },
-        onFailure: (err) => {
-          console.error('Failed to reconnect to MQTT broker:', err);
-          setConnected(false);
-          setError(new Error(err.errorMessage));
-          
-          if (options.onError) {
-            options.onError(new Error(err.errorMessage));
-          }
         }
-      });
+      }, 500);
     }
   }, [options.username, options.password]); // Only react to credential changes
 
@@ -331,6 +356,36 @@ export const useMqtt = (options: MqttConnectionOptions) => {
     }
   }, []);
 
+  // Function to publish a message to the LCD
+  const publishLCDMessage = useCallback((lcdMessage: LCDMessage) => {
+    if (!clientRef.current || !clientRef.current.isConnected()) {
+      setError(new Error('Not connected to MQTT broker'));
+      return false;
+    }
+    
+    try {
+      const message = new Message(JSON.stringify(lcdMessage));
+      message.destinationName = TOPICS.LCD_MESSAGE;
+      clientRef.current.send(message);
+      console.log('Published LCD message:', lcdMessage);
+      
+      // Add to logs
+      const newLog: ElevatorLog = {
+        id: Date.now().toString(),
+        action: 'LCD_MESSAGE_SENT',
+        details: `LCD message: ${lcdMessage.message}${lcdMessage.line2 ? ` (line 2: ${lcdMessage.line2})` : ''}`,
+        timestamp: new Date().toISOString()
+      };
+      setLogs(prev => [newLog, ...prev]);
+      
+      return true;
+    } catch (err) {
+      console.error('Error publishing LCD message:', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
+      return false;
+    }
+  }, []);
+
   return {
     connected,
     error,
@@ -339,7 +394,8 @@ export const useMqtt = (options: MqttConnectionOptions) => {
     logs,
     connectionStatus,
     commandAcks,
-    publishCommand
+    publishCommand,
+    publishLCDMessage
   };
 };
 
@@ -570,10 +626,38 @@ export const useSimulatedElevator = () => {
         timestamp: new Date().toISOString()
       };
       setLogs(prev => [newLog, ...prev]);
+    } else if (command.action === 'display_message') {
+      // Simulate display message command
+      if (command.message) {
+        // Log LCD message
+        const newLog: ElevatorLog = {
+          id: Date.now().toString(),
+          action: 'LCD_MESSAGE',
+          details: `LCD message displayed: ${command.message}${command.line2 ? ` (line 2: ${command.line2})` : ''}`,
+          timestamp: new Date().toISOString()
+        };
+        setLogs(prev => [newLog, ...prev]);
+      }
     }
     
     return true;
   }, [elevatorStatus, setElevatorStatus, setAlerts, setLogs]);
+  
+  // Add publishLCDMessage to the simulated hook
+  const publishLCDMessage = useCallback((lcdMessage: LCDMessage) => {
+    console.log('Simulated LCD message:', lcdMessage);
+    
+    // Add to logs
+    const newLog: ElevatorLog = {
+      id: Date.now().toString(),
+      action: 'LCD_MESSAGE_SENT',
+      details: `LCD message: ${lcdMessage.message}${lcdMessage.line2 ? ` (line 2: ${lcdMessage.line2})` : ''}`,
+      timestamp: new Date().toISOString()
+    };
+    setLogs(prev => [newLog, ...prev]);
+    
+    return true;
+  }, [setLogs]);
   
   return {
     connected,
@@ -582,6 +666,7 @@ export const useSimulatedElevator = () => {
     logs,
     connectionStatus,
     publishCommand,
+    publishLCDMessage,
     error: null
   };
 };

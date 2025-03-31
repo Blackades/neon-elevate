@@ -10,7 +10,7 @@ import AlertsPanel from '@/components/AlertsPanel';
 import LogsPanel from '@/components/LogsPanel';
 import TerminalPanel from '@/components/TerminalPanel';
 import VoiceControl from '@/components/VoiceControl';
-import { useMqtt, useSimulatedElevator } from '@/services/mqttService';
+import { useMqtt, useSimulatedElevator, LCDMessage } from '@/services/mqttService';
 import { 
   ArrowLeftRight,
   LayoutDashboard,
@@ -19,7 +19,8 @@ import {
   TerminalSquare,
   LogOut,
   Mic,
-  Command
+  Command,
+  MonitorSmartphone
 } from 'lucide-react';
 import { parseCommand } from '@/services/commandParser';
 
@@ -40,6 +41,10 @@ const Index = () => {
   const [shownConnectNotification, setShownConnectNotification] = useState(false);
   const [shownDisconnectNotification, setShownDisconnectNotification] = useState(false);
   
+  // State for LCD message
+  const [lcdMessage, setLcdMessage] = useState('');
+  const [lcdMessageLine2, setLcdMessageLine2] = useState('');
+  
   // Use real MQTT connection with prefilled credentials from Arduino sketch
   const { 
     connected, 
@@ -47,6 +52,7 @@ const Index = () => {
     alerts, 
     logs, 
     publishCommand, 
+    publishLCDMessage,
     error: mqttError 
   } = useMqtt({
     username: mqttUsername,
@@ -201,6 +207,52 @@ const Index = () => {
     }
   }, [publishCommand]);
   
+  // Handle sending LCD message
+  const handleSendLCDMessage = useCallback(() => {
+    if (!lcdMessage.trim()) {
+      toast({
+        title: "Message Required",
+        description: "Please enter a message to display on the LCD",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const lcdMessageObj: LCDMessage = {
+      message: lcdMessage.trim()
+    };
+    
+    if (lcdMessageLine2.trim()) {
+      lcdMessageObj.line2 = lcdMessageLine2.trim();
+    }
+    
+    const success = publishLCDMessage(lcdMessageObj);
+    
+    if (success) {
+      toast({
+        title: "Message Sent",
+        description: "LCD message sent to elevator display"
+      });
+      
+      // Also send as a display_message command for compatibility
+      publishCommand({
+        action: 'display_message',
+        message: lcdMessage.trim(),
+        line2: lcdMessageLine2.trim() || undefined
+      });
+      
+      // Clear input fields
+      setLcdMessage('');
+      setLcdMessageLine2('');
+    } else {
+      toast({
+        title: "Send Failed",
+        description: "Failed to send LCD message. Check connection.",
+        variant: "destructive"
+      });
+    }
+  }, [lcdMessage, lcdMessageLine2, publishLCDMessage, publishCommand, toast]);
+  
   // If not authenticated, show login screen
   if (!isAuthenticated) {
     return (
@@ -297,6 +349,17 @@ const Index = () => {
               }`}
             >
               <Mic className="w-5 h-5" />
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab('lcd')}
+              className={`p-3 rounded-md transition-all duration-200 ${
+                activeTab === 'lcd' 
+                  ? 'bg-cyber-blue text-cyber-dark' 
+                  : 'text-cyber-blue hover:bg-cyber-blue hover:bg-opacity-20'
+              }`}
+            >
+              <MonitorSmartphone className="w-5 h-5" />
             </button>
           </div>
           
@@ -449,6 +512,102 @@ const Index = () => {
                 </div>
                 <div>
                   <TerminalPanel onSendCommand={handleTerminalCommand} />
+                </div>
+              </div>
+            )}
+            
+            {/* LCD Message View */}
+            {activeTab === 'lcd' && (
+              <div className="grid grid-cols-1 gap-4">
+                <div className="p-4 bg-cyber-dark border border-cyber-blue rounded-md">
+                  <h2 className="text-xl text-cyber-blue mb-4">LCD Display Control</h2>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Send custom messages to be displayed on the elevator's LCD screen. The message will be displayed for approximately 3 seconds.
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="line1" className="block text-sm text-cyber-green mb-2">Line 1 (16 chars max)</label>
+                      <input 
+                        id="line1"
+                        type="text" 
+                        value={lcdMessage}
+                        onChange={(e) => setLcdMessage(e.target.value)}
+                        maxLength={16}
+                        placeholder="Enter message for line 1"
+                        className="w-full bg-cyber-black border border-cyber-blue text-white px-4 py-2 rounded-md focus:outline-none focus:ring-1 focus:ring-cyber-blue"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">{lcdMessage.length}/16 characters</div>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="line2" className="block text-sm text-cyber-green mb-2">Line 2 (optional, 16 chars max)</label>
+                      <input 
+                        id="line2"
+                        type="text" 
+                        value={lcdMessageLine2}
+                        onChange={(e) => setLcdMessageLine2(e.target.value)}
+                        maxLength={16}
+                        placeholder="Enter message for line 2 (optional)"
+                        className="w-full bg-cyber-black border border-cyber-blue text-white px-4 py-2 rounded-md focus:outline-none focus:ring-1 focus:ring-cyber-blue"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">{lcdMessageLine2.length}/16 characters</div>
+                    </div>
+                    
+                    <div className="pt-2">
+                      <button
+                        onClick={handleSendLCDMessage}
+                        disabled={!connected}
+                        className={`${
+                          connected 
+                            ? 'bg-cyber-blue hover:bg-cyber-blue-bright text-black' 
+                            : 'bg-gray-700 text-gray-300 cursor-not-allowed'
+                        } px-6 py-2 rounded-md transition-colors duration-200 flex items-center`}
+                      >
+                        <MonitorSmartphone className="w-4 h-4 mr-2" />
+                        Send to LCD
+                      </button>
+                      
+                      {!connected && (
+                        <p className="text-cyber-pink text-sm mt-2">Connect to MQTT to send messages</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* LCD Display Preview */}
+                  <div className="mt-6">
+                    <h3 className="text-cyber-yellow text-sm mb-2">LCD Preview:</h3>
+                    <div className="border-2 border-cyber-blue bg-cyber-black p-4 rounded-md font-mono text-cyber-green">
+                      <div className="h-6 overflow-hidden">
+                        {lcdMessage || '[Line 1]'}
+                      </div>
+                      <div className="h-6 overflow-hidden">
+                        {lcdMessageLine2 || '[Line 2]'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Recent LCD Messages in Logs */}
+                <div className="p-4 bg-cyber-dark border border-cyber-blue rounded-md">
+                  <h3 className="text-cyber-blue mb-4">Recent LCD Messages</h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {logs
+                      .filter(log => log.action === 'LCD_MESSAGE_SENT' || log.action === 'LCD_MESSAGE')
+                      .slice(0, 10)
+                      .map(log => (
+                        <div key={log.id} className="text-sm border-l-2 border-cyber-blue pl-2">
+                          <p className="text-cyber-green">{log.details}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(log.timestamp).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      ))}
+                    
+                    {logs.filter(log => log.action === 'LCD_MESSAGE_SENT' || log.action === 'LCD_MESSAGE').length === 0 && (
+                      <p className="text-gray-500 text-sm">No LCD messages sent yet</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
