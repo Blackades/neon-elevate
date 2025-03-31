@@ -67,7 +67,7 @@ export interface ElevatorLog {
 }
 
 export interface ElevatorCommand {
-  action: 'move' | 'stop' | 'open' | 'close' | 'emergency' | 'reset' | 'maintenance' | 'display_message' | 'restart_esp' | 'wifi_scan';
+  command: 'move' | 'stop' | 'open' | 'close' | 'emergency' | 'reset' | 'maintenance' | 'display_message' | 'restart_esp' | 'wifi_scan';
   floor?: number;
   override?: boolean;
   message?: string;
@@ -343,7 +343,7 @@ export const useMqtt = (options: MqttConnectionOptions) => {
       const newLog: ElevatorLog = {
         id: Date.now().toString(),
         action: 'COMMAND_SENT',
-        details: `Command ${command.action} sent to elevator`,
+        details: `Command ${command.command} sent to elevator`,
         timestamp: new Date().toISOString()
       };
       setLogs(prev => [newLog, ...prev]);
@@ -458,7 +458,7 @@ export const useSimulatedElevator = () => {
     console.log('Simulated command:', command);
     
     // Simulate response to commands
-    if (command.action === 'move' && typeof command.floor === 'number') {
+    if (command.command === 'move' && typeof command.floor === 'number') {
       const currentFloor = elevatorStatus.floor;
       const targetFloor = command.floor;
       
@@ -549,7 +549,7 @@ export const useSimulatedElevator = () => {
           }, 1000);
         }
       }, 1000);
-    } else if (command.action === 'open') {
+    } else if (command.command === 'open') {
       // Open doors
       setElevatorStatus(prev => ({
         ...prev,
@@ -565,7 +565,7 @@ export const useSimulatedElevator = () => {
         timestamp: new Date().toISOString()
       };
       setLogs(prev => [newLog, ...prev]);
-    } else if (command.action === 'close') {
+    } else if (command.command === 'close') {
       // Close doors
       setElevatorStatus(prev => ({
         ...prev,
@@ -581,7 +581,7 @@ export const useSimulatedElevator = () => {
         timestamp: new Date().toISOString()
       };
       setLogs(prev => [newLog, ...prev]);
-    } else if (command.action === 'emergency') {
+    } else if (command.command === 'emergency') {
       // Emergency stop
       setElevatorStatus(prev => ({
         ...prev,
@@ -608,7 +608,7 @@ export const useSimulatedElevator = () => {
         timestamp: new Date().toISOString()
       };
       setLogs(prev => [newLog, ...prev]);
-    } else if (command.action === 'maintenance') {
+    } else if (command.command === 'maintenance') {
       // Toggle maintenance mode
       const newState = !elevatorStatus.maintenance;
       
@@ -626,7 +626,7 @@ export const useSimulatedElevator = () => {
         timestamp: new Date().toISOString()
       };
       setLogs(prev => [newLog, ...prev]);
-    } else if (command.action === 'display_message') {
+    } else if (command.command === 'display_message') {
       // Simulate display message command
       if (command.message) {
         // Log LCD message

@@ -62,7 +62,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
     }
     
     onCommand({
-      action: 'move',
+      command: 'move',
       floor
     });
     
@@ -99,7 +99,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
     }
     
     onCommand({
-      action
+      command: action
     });
     
     toast({
@@ -111,7 +111,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
   const handleEmergency = () => {
     if (confirmingEmergency) {
       onCommand({
-        action: 'emergency',
+        command: 'emergency',
         override: true
       });
       
@@ -134,7 +134,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
   
   const handleMaintenanceToggle = () => {
     onCommand({
-      action: 'maintenance'
+      command: 'maintenance'
     });
     
     toast({
@@ -154,7 +154,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
     }
     
     onCommand({
-      action: 'display_message',
+      command: 'display_message',
       message: displayMessage
     });
     
@@ -169,7 +169,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
   const handleEspRestart = () => {
     if (window.confirm("Are you sure you want to restart the ESP8266?")) {
       onCommand({
-        action: 'restart_esp'
+        command: 'restart_esp'
       });
       
       toast({
@@ -181,7 +181,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
 
   const handleWifiScan = () => {
     onCommand({
-      action: 'wifi_scan'
+      command: 'wifi_scan'
     });
     
     toast({

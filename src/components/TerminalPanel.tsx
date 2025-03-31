@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, TerminalSquare, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { parseCommand } from '../services/commandParser';
 
 interface TerminalPanelProps {
   onSendCommand: (command: string) => void;
@@ -38,15 +39,26 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ onSendCommand, className 
 
     // Process command
     try {
-      onSendCommand(command);
+      // Try to parse the command
+      const parsedCommand = parseCommand(command);
       
-      // Add system response
-      setHistory(prev => [...prev, { 
-        type: 'output', 
-        content: `Command "${command}" sent to ESP.`, 
-        timestamp: new Date() 
-      }]);
-
+      if (parsedCommand) {
+        onSendCommand(command);
+        
+        // Add system response
+        setHistory(prev => [...prev, { 
+          type: 'output', 
+          content: `Command "${command}" sent to ESP.`, 
+          timestamp: new Date() 
+        }]);
+      } else {
+        // Command wasn't recognized
+        setHistory(prev => [...prev, { 
+          type: 'output', 
+          content: `Unrecognized command: "${command}"`, 
+          timestamp: new Date() 
+        }]);
+      }
     } catch (error) {
       setHistory(prev => [...prev, { 
         type: 'output', 

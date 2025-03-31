@@ -18,7 +18,7 @@ export function parseCommand(text: string): ElevatorCommand | null {
     if (match && match[1]) {
       const floor = parseInt(match[1]);
       return {
-        action: 'move',
+        command: 'move',
         floor
       };
     }
@@ -27,13 +27,13 @@ export function parseCommand(text: string): ElevatorCommand | null {
   // Door controls
   if (lowerText.includes('open door') || lowerText.includes('open the door')) {
     return {
-      action: 'open'
+      command: 'open'
     };
   }
   
   if (lowerText.includes('close door') || lowerText.includes('close the door')) {
     return {
-      action: 'close'
+      command: 'close'
     };
   }
   
@@ -42,7 +42,7 @@ export function parseCommand(text: string): ElevatorCommand | null {
       lowerText.includes('stop') || 
       lowerText.includes('halt')) {
     return {
-      action: 'emergency',
+      command: 'emergency',
       override: true
     };
   }
@@ -50,7 +50,7 @@ export function parseCommand(text: string): ElevatorCommand | null {
   // Maintenance mode
   if (lowerText.includes('maintenance mode') || lowerText.includes('enter maintenance')) {
     return {
-      action: 'maintenance'
+      command: 'maintenance'
     };
   }
   
@@ -59,7 +59,7 @@ export function parseCommand(text: string): ElevatorCommand | null {
       lowerText.includes('wifi scan') || 
       lowerText.includes('scan networks')) {
     return {
-      action: 'wifi_scan'
+      command: 'wifi_scan'
     };
   }
   
@@ -68,7 +68,7 @@ export function parseCommand(text: string): ElevatorCommand | null {
       lowerText.includes('reboot') || 
       lowerText.includes('reset system')) {
     return {
-      action: 'restart_esp'
+      command: 'restart_esp'
     };
   }
   
@@ -79,7 +79,7 @@ export function parseCommand(text: string): ElevatorCommand | null {
   
   if (displayMatch && displayMatch[1]) {
     return {
-      action: 'display_message',
+      command: 'display_message',
       message: displayMatch[1].trim()
     };
   }
