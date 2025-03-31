@@ -376,43 +376,62 @@ const Index = () => {
           {/* Header - Fixed to avoid overlapping text issues */}
           <header className="bg-cyber-dark border-b border-cyber-blue py-3 px-4">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
-              <div>
+              <div className="flex-shrink-0">
                 <h1 className="text-xl md:text-2xl font-cyber">
                   <span className="text-cyber-blue">Neon</span>
                   <span className="text-cyber-pink">Elevate</span>
                   <span className="text-cyber-blue ml-2 text-sm md:text-base">v2.0</span>
                 </h1>
-                
-                {/* Status indicators in a cleaner layout */}
-                <div className="flex flex-wrap items-center text-xs text-gray-400 mt-1 gap-x-4">
-                  <div className="flex items-center">
-                    <span className="mr-1">Status:</span>
-                    <span className={`${
-                      elevatorStatus?.systemState === 'NORMAL' ? 'text-cyber-green' :
-                      elevatorStatus?.systemState === 'MAINTENANCE' ? 'text-cyber-yellow' :
-                      elevatorStatus?.systemState === 'EMERGENCY' ? 'text-cyber-pink' : 'text-gray-400'
-                    }`}>
-                      {elevatorStatus?.systemState || 'UNKNOWN'}
-                    </span>
+              </div>
+              
+              {/* System Status Container - Repositioned */}
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Floor and System Status */}
+                <div className="bg-cyber-dark/50 border border-cyber-blue/30 rounded px-3 py-1">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Floor:</span>
+                      <span className="text-cyber-pink font-bold">
+                        {elevatorStatus?.floor || '?'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Status:</span>
+                      <span className={`text-xs ${
+                        elevatorStatus?.systemState === 'NORMAL' ? 'text-cyber-green' :
+                        elevatorStatus?.systemState === 'MAINTENANCE' ? 'text-cyber-yellow' :
+                        elevatorStatus?.systemState === 'EMERGENCY' ? 'text-cyber-pink' : 'text-gray-400'
+                      }`}>
+                        {elevatorStatus?.systemState || 'UNKNOWN'}
+                      </span>
+                    </div>
                   </div>
-                  
-                  <div className="flex items-center">
-                    <span className="mr-1">System:</span>
+                </div>
+                
+                {/* System Online Status */}
+                <div className="bg-cyber-dark/50 border border-cyber-blue/30 rounded px-3 py-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">System:</span>
                     <span className={elevatorStatus ? 'text-cyber-green' : 'text-cyber-pink'}>
                       {elevatorStatus ? 'ONLINE' : 'OFFLINE'}
                     </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">MQTT:</span>
+                    <div className="flex items-center">
+                      <div className={`w-2 h-2 rounded-full ${connected ? 'bg-cyber-green animate-pulse' : 'bg-cyber-pink'} mr-1`}></div>
+                      <span className="text-xs text-gray-300">
+                        {connected ? 'CONNECTED' : 'DISCONNECTED'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
-                <div className="flex items-center">
-                  <div className={`w-2 h-2 rounded-full ${connected ? 'bg-cyber-green animate-pulse' : 'bg-cyber-pink'} mr-2`}></div>
-                  <span className="text-xs text-gray-300">
-                    {connected ? 'CONNECTED' : 'DISCONNECTED'}
-                  </span>
-                </div>
-                
+                {/* Live System Badge */}
                 <div className="text-cyber-yellow text-xs bg-cyber-dark px-3 py-1 rounded-full border border-cyber-yellow">
                   LIVE SYSTEM
                 </div>
