@@ -47,6 +47,16 @@ export function parseCommand(text: string): ElevatorCommand | null {
     };
   }
   
+  // Reset emergency mode
+  if (lowerText.includes('reset emergency') || 
+      lowerText.includes('exit emergency') || 
+      lowerText.includes('deactivate emergency') ||
+      lowerText.includes('cancel emergency')) {
+    return {
+      command: 'reset'
+    };
+  }
+  
   // Maintenance mode
   if (lowerText.includes('maintenance mode') || lowerText.includes('enter maintenance')) {
     return {

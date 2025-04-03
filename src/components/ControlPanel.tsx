@@ -13,7 +13,8 @@ import {
   Lock,
   RefreshCw,
   Wifi,
-  MessageSquare
+  MessageSquare,
+  ShieldOff
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
@@ -130,6 +131,17 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
         setConfirmingEmergency(false);
       }, 3000);
     }
+  };
+
+  const handleExitEmergency = () => {
+    onCommand({
+      command: 'reset'
+    });
+    
+    toast({
+      title: "Emergency Mode Deactivated",
+      description: "Returning to normal operation mode",
+    });
   };
   
   const handleMaintenanceToggle = () => {
@@ -263,22 +275,35 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ status, onCommand, classNam
           </div>
         </div>
         
-        {/* Emergency Stop */}
+        {/* Emergency Controls */}
         <div>
           <h4 className="text-sm font-cyber text-gray-400 mb-2">EMERGENCY CONTROLS</h4>
-          <Button
-            onClick={handleEmergency}
-            variant="outline"
-            className={`
-              w-full py-6 border-2
-              ${confirmingEmergency 
-                ? 'bg-cyber-pink text-white border-cyber-pink animate-pulse' 
-                : 'bg-cyber-dark border-cyber-pink text-cyber-pink hover:bg-cyber-pink hover:text-white'}
-            `}
-          >
-            <AlertOctagon className={`w-5 h-5 mr-2 ${confirmingEmergency ? 'animate-spin' : ''}`} />
-            {confirmingEmergency ? 'CONFIRM EMERGENCY STOP' : 'EMERGENCY STOP'}
-          </Button>
+          <div className="grid grid-cols-1 gap-3">
+            <Button
+              onClick={handleEmergency}
+              variant="outline"
+              className={`
+                py-6 border-2
+                ${confirmingEmergency 
+                  ? 'bg-cyber-pink text-white border-cyber-pink animate-pulse' 
+                  : 'bg-cyber-dark border-cyber-pink text-cyber-pink hover:bg-cyber-pink hover:text-white'}
+              `}
+            >
+              <AlertOctagon className={`w-5 h-5 mr-2 ${confirmingEmergency ? 'animate-spin' : ''}`} />
+              {confirmingEmergency ? 'CONFIRM EMERGENCY STOP' : 'EMERGENCY STOP'}
+            </Button>
+            
+            {status.systemState === 'EMERGENCY' && (
+              <Button
+                onClick={handleExitEmergency}
+                variant="outline"
+                className="bg-cyber-dark border-cyber-green text-cyber-green hover:bg-cyber-green hover:text-cyber-dark py-4"
+              >
+                <ShieldOff className="w-5 h-5 mr-2" />
+                EXIT EMERGENCY MODE
+              </Button>
+            )}
+          </div>
         </div>
         
         {/* Maintenance Mode */}
