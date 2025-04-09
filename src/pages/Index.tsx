@@ -357,6 +357,18 @@ const Index = () => {
                 </h1>
               </div>
               
+              <div className="bg-cyber-dark/50 border border-cyber-blue rounded-md py-1 px-3 mr-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-cyber-blue">Floor: </span>
+                  <span className="text-cyber-pink font-bold">{elevatorStatus?.floor || '?'}</span>
+                  
+                  <span className="text-cyber-blue ml-2">Doors: </span>
+                  <span className={elevatorStatus?.doorOpen ? "text-cyber-green" : "text-cyber-pink"}>
+                    {elevatorStatus?.doorOpen ? "OPEN" : "CLOSED"}
+                  </span>
+                </div>
+              </div>
+              
               <div className="flex flex-wrap gap-4 items-center">
                 <div className="bg-cyber-dark/50 border border-cyber-blue/30 rounded px-3 py-1">
                   <div className="flex flex-col">
