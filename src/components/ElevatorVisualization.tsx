@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -18,6 +19,7 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
   const shaftRef = useRef<THREE.Group | null>(null);
   const animationFrameRef = useRef<number>(0);
   const previousFloorRef = useRef<number>(status?.floor || 1);
+  const doorMeshRef = useRef<THREE.Mesh | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -126,6 +128,12 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
           const markerMaterial = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
           const marker = new THREE.Mesh(markerGeometry, markerMaterial);
           marker.position.set(-shaftWidth / 2 - 1, y, 0);
+          
+          // Add floor number next to the marker
+          const textMesh = createFloorText(i.toString());
+          textMesh.position.set(-shaftWidth / 2 - 2, y, 0);
+          shaftGroup.add(textMesh);
+          
           shaftGroup.add(marker);
         }
       }
@@ -144,6 +152,35 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
       return shaftGroup;
     };
 
+    // Helper function to create 3D text for floor numbers
+    const createFloorText = (text: string) => {
+      // Create a canvas for the text
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = 64;
+      canvas.height = 64;
+      
+      if (context) {
+        context.fillStyle = '#00f0ff';
+        context.font = 'bold 50px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(text, 32, 32);
+      }
+      
+      // Create texture from canvas
+      const texture = new THREE.CanvasTexture(canvas);
+      
+      // Create a material with the texture
+      const material = new THREE.SpriteMaterial({ map: texture });
+      
+      // Create a sprite with the material
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(1, 1, 1);
+      
+      return sprite;
+    };
+
     const createElevator = () => {
       const elevatorGroup = new THREE.Group();
       
@@ -158,9 +195,9 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
       
       const doorGeometry = new THREE.PlaneGeometry(4, 2);
       const doorMaterial = new THREE.MeshPhongMaterial({
-        color: 0x00f0ff,
+        color: 0xff0055, // Default to red (closed)
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.5,
         side: THREE.DoubleSide
       });
       
@@ -168,6 +205,7 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
       frontDoor.position.set(0, 0, 2.51);
       frontDoor.userData.isDoor = true;
       elevatorGroup.add(frontDoor);
+      doorMeshRef.current = frontDoor;
       
       const indicatorGeometry = new THREE.PlaneGeometry(2, 0.5);
       const indicatorMaterial = new THREE.MeshBasicMaterial({
@@ -201,7 +239,10 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
       const bottomLine = new THREE.Line(bottomLineGeometry, lineMaterial);
       elevatorGroup.add(bottomLine);
       
-      elevatorGroup.position.set(0, 1.25, 0);
+      // Position the elevator at the starting floor (1)
+      const floorHeight = 3;
+      const initialFloor = status?.floor || 1;
+      elevatorGroup.position.set(0, initialFloor * floorHeight - floorHeight / 2, 0);
       
       return elevatorGroup;
     };
@@ -252,7 +293,7 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
         rendererRef.current.dispose();
       }
     };
-  }, []);
+  }, [status?.floor]); // Re-initialize when floor changes to position correctly on load
 
   useEffect(() => {
     if (!elevatorRef.current || !status) return;
@@ -261,17 +302,18 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
     const currentFloor = status.floor;
     const targetY = currentFloor * floorHeight - floorHeight / 2;
     
-    const doorMesh = elevatorRef.current.children.find((child) => 
-      child instanceof THREE.Mesh && child.userData.isDoor
-    ) as THREE.Mesh | undefined;
-    
-    if (doorMesh) {
-      const doorMaterial = doorMesh.material as THREE.MeshPhongMaterial;
+    // Update door mesh material color based on door status
+    if (doorMeshRef.current) {
+      const doorMaterial = doorMeshRef.current.material as THREE.MeshPhongMaterial;
       
       if (status.doorOpen) {
-        doorMaterial.opacity = 0;
+        // If door is open, set to green
+        doorMaterial.color.set(0x00ff00);
+        doorMaterial.opacity = 0.5;
       } else {
-        doorMaterial.opacity = 0.3;
+        // If door is closed, set to red
+        doorMaterial.color.set(0xff0055);
+        doorMaterial.opacity = 0.5;
       }
     }
     
@@ -326,6 +368,21 @@ const ElevatorVisualization: React.FC<ElevatorVisualizationProps> = ({ status, c
           }`}>
             {status.batteryLevel}%
           </span>
+        </div>
+      )}
+      
+      {status && (
+        <div className="absolute top-2 left-2 z-10 font-cyber bg-black bg-opacity-70 px-3 py-1 rounded">
+          <span className="text-xs text-cyber-blue">
+            Floor: <span className="text-cyber-pink">{status.floor}</span>
+          </span>
+          {status.doorOpen !== undefined && (
+            <span className="text-xs ml-2">
+              Doors: <span className={status.doorOpen ? "text-cyber-green" : "text-cyber-pink"}>
+                {status.doorOpen ? "OPEN" : "CLOSED"}
+              </span>
+            </span>
+          )}
         </div>
       )}
     </div>
