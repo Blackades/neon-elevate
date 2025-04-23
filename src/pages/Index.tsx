@@ -22,6 +22,7 @@ import {
   MonitorSmartphone
 } from 'lucide-react';
 import { parseCommand } from '@/services/commandParser';
+import Logo from '@/components/Logo';
 
 const DEFAULT_MQTT_USER = "hivemq.webclient.1741534338297";
 const DEFAULT_MQTT_PASSWORD = "oU0N>eu5g<c;pV9AE$4F";
@@ -349,12 +350,14 @@ const Index = () => {
         <div className="flex-1 overflow-hidden flex flex-col">
           <header className="bg-cyber-dark border-b border-cyber-blue py-3 px-4">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
-              <div className="flex-shrink-0">
-                <h1 className="text-xl md:text-2xl font-cyber">
-                  <span className="text-cyber-blue">Neon</span>
-                  <span className="text-cyber-pink">Elevate</span>
-                  <span className="text-cyber-blue ml-2 text-sm md:text-base">v2.0</span>
-                </h1>
+              <div className="flex items-center flex-shrink-0 space-x-4">
+                <Logo />
+                <div>
+                  <h1 className="text-xl md:text-2xl font-cyber neon-text-multicolor">
+                    NeonElevate
+                    <span className="text-cyber-blue ml-2 text-sm md:text-base">v2.0</span>
+                  </h1>
+                </div>
               </div>
               
               <div className="bg-cyber-dark/50 border border-cyber-blue rounded-md py-1 px-3 mr-2">
